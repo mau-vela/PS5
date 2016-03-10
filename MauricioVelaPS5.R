@@ -63,7 +63,7 @@ summary(results2)
 predicted1 <- predict(results1$analyses[[1]], complete(micetest,1))
 predicted2 <- predict(results2$analyses[[1]], complete(micetest,1))
 
-##3, 4 and 5
+##3, 4, 5 and 6
 #Create function to return statistics based on arguments (1) a vector of \true" observed outcomes (y), and (2) a matrix of predictions
 fit_stats <- function(y, predmat, r=NULL,  s_RMSE=T,s_MAD=T,s_RMSLE=T,s_MAPE=T,s_MEAPE=T, s_MRAE=T){ 
   RMSE <- MAD <- RMSLE <- MAPE <- MEAPE <- MRAE <- NULL
