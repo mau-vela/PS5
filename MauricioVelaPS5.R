@@ -1,9 +1,11 @@
 library(foreign)
+library(mice)
 
 options(stringsAsFactors=F)
 #set wd
 setwd("C:/Users/MauricioAndresVela/Documents/R/Clase/PS5")
 
+##1
 #load data
 dat <- read.dta("anes_timeseries_2012_stata12.dta")
 
@@ -25,20 +27,72 @@ dat <- as.data.frame(lapply(dat, function(x) {
   replace(x,substr(x, 1, 2) %in% c("-2","-8","-9"), NA)
 }))
 
-
-#Replace dependent variable to be value between 0 and 1
-dat$ft_dpc <- dat$ft_dpc * 0.01
+#Fix levels from factor variables
+dat[,c("econ_ecpast", "dem_hisp", "pid_self", "dem_edu")]<- 
+  lapply(dat[,c("econ_ecpast", "dem_hisp",  "pid_self",  "dem_edu")],
+         function(x) as.factor(as.character(x)))  
+       
+       
+#Put liberal-conservative scale as numeric
+dat$libcpre_self <- as.numeric(substr(dat$libcpre_self, 1, 2))
 
 #Create test and training data
-set.seed(123)
+set.seed(1234)
 sel <- sample(x=1:nrow(dat), 500) #select 500 random obs to be taking out
 train <- dat[-sel,]
 test <- dat[sel,]
 
+#Use multiple imputation for NA
+micetrain <- mice(train, 10)
+micetest <- mice(test, 10)
+
+#Run lm model with only some variables
+results1 <- lm.mids(ft_dpc ~ econ_ecpast+pid_self+dem_edu, 
+                          data=micetrain)
+#Run lm model with all variables selected
+results2 <- lm.mids(ft_dpc ~ econ_ecpast+dem_hisp+libcpre_self+pid_self+dem_racecps_black+dem_edu, 
+                    data=micetrain)
+  
+  
+#show results
+summary(results1)
+summary(results2)
+
+##2
+#predict for test data using only one mice iteration
+predicted1 <- predict(results1$analyses[[1]], complete(micetest,1))
+predicted2 <- predict(results2$analyses[[1]], complete(micetest,1))
+
+##3, 4 and 5
+#Create function to return statistics based on arguments (1) a vector of \true" observed outcomes (y), and (2) a matrix of predictions
+fit_stats <- function(y, predmat, s_RMSE=T,s_MAD=T,s_RMSLE=T,s_MAPE=T,s_MEAPE=T){ 
+  RMSE <- MAD <- RMSLE <- MAPE <- MEAPE <- NULL
+  #calculate e
+  e <- abs(predmat-y)
+  #calculate a
+  a <- 100*e/abs(y)
+  #RMSE
+  n <- nrow(predmat)
+  if (s_RMSE==T) RMSE <- apply(e,2, function(x) sqrt(sum(x^2)/n))
+  #MAD
+  if (s_MAD==T) MAD <- apply(e, 2, median)
+  #RMSLE
+  if (s_RMSLE==T) RMSLE <- apply(predmat, 2, function(x) sqrt(sum((log(x+1) - log(y+1))^2))/n)
+  #MAPE
+  if (s_MAPE==T) MAPE <- apply(a, 2, function(x) sum(x)/n)
+  # calculate MEAPE
+  if (s_RMSE==T) MEAPE <- apply(a, 2, median)
+  # combine all the stats
+  output <- rbind(RMSE, MAD, RMSLE, MAPE, MEAPE)
+  return(output)
+}
+
+#use the function with predictions 
+#Create predict matrix
+predmat <- matrix(c(predicted1, predicted2), ncol=2)
+#observed y_i
+y <- test[,"ft_dpc"]
+fit_stats(y, predmat, s_MAD = F, s_MAPE=F)
 
 
 
-
-anes$libcpre_self <- as.numeric(anes$libcpre_self)
-anes$libcpre_self[anes$libcpre_self < 4] <- NA
-anes$libcpre_self <- anes$libcpre_self -3
