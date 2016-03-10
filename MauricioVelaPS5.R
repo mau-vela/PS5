@@ -65,8 +65,8 @@ predicted2 <- predict(results2$analyses[[1]], complete(micetest,1))
 
 ##3, 4 and 5
 #Create function to return statistics based on arguments (1) a vector of \true" observed outcomes (y), and (2) a matrix of predictions
-fit_stats <- function(y, predmat, s_RMSE=T,s_MAD=T,s_RMSLE=T,s_MAPE=T,s_MEAPE=T){ 
-  RMSE <- MAD <- RMSLE <- MAPE <- MEAPE <- NULL
+fit_stats <- function(y, predmat, r=NULL,  s_RMSE=T,s_MAD=T,s_RMSLE=T,s_MAPE=T,s_MEAPE=T, s_MRAE=T){ 
+  RMSE <- MAD <- RMSLE <- MAPE <- MEAPE <- MRAE <- NULL
   #calculate e
   e <- abs(predmat-y)
   #calculate a
@@ -82,17 +82,21 @@ fit_stats <- function(y, predmat, s_RMSE=T,s_MAD=T,s_RMSLE=T,s_MAPE=T,s_MEAPE=T)
   if (s_MAPE==T) MAPE <- apply(a, 2, function(x) sum(x)/n)
   # calculate MEAPE
   if (s_RMSE==T) MEAPE <- apply(a, 2, median)
+  #MRAE
+  if (s_MRAE==T & !is.null(r)) MRAE <- apply(e, 2, function(x) median(x/abs(r-y)))
   # combine all the stats
-  output <- rbind(RMSE, MAD, RMSLE, MAPE, MEAPE)
+  output <- rbind(RMSE, MAD, RMSLE, MAPE, MEAPE, MRAE)
   return(output)
-}
+} 
 
 #use the function with predictions 
 #Create predict matrix
 predmat <- matrix(c(predicted1, predicted2), ncol=2)
 #observed y_i
 y <- test[,"ft_dpc"]
-fit_stats(y, predmat, s_MAD = F, s_MAPE=F)
+#naive r
+r <- rnorm(length(y),mean(y), sd(y))
+fit_stats(y, predmat, r=r, s_MAD = F, s_MAPE=F)
 
 
 
